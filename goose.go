@@ -45,6 +45,10 @@ func Run(command string, db *sql.DB, dir string, args ...string) error {
 		if err := UpTo(db, dir, version); err != nil {
 			return err
 		}
+	case "up-all-unapplied":
+		if err := UpAll(db, dir); err != nil {
+			return err
+		}
 	case "create":
 		if len(args) == 0 {
 			return fmt.Errorf("create must be of form: goose [OPTIONS] DRIVER DBSTRING create NAME [go|sql]")
