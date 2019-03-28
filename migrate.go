@@ -49,6 +49,9 @@ func (ms Migrations) Current(current int64) (*Migration, error) {
 
 // Next gets the next migration.
 func (ms Migrations) Next(current int64) (*Migration, error) {
+	if current == 0 {
+		return ms[0], nil
+	}
 	cur, err := ms.Current(current)
 	if err != nil {
 		return nil, err
