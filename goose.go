@@ -46,13 +46,15 @@ func Run(command string, db *sql.DB, dir string, args ...string) error {
 			return err
 		}
 	case "up-all-unapplied":
-		if err := UpAll(db, dir); err != nil {
-			return err
-		}
+		var err error
+		err = UpAll(db, dir)
 		if args[0] == "fix" {
 			if err := fixUp(db); err != nil {
 				return err
 			}
+		}
+		if err != nil {
+			return err
 		}
 	case "create":
 		if len(args) == 0 {
