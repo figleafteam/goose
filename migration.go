@@ -26,6 +26,7 @@ type Migration struct {
 	Previous   int64  // previous version, -1 if none
 	Source     string // path to .sql script
 	Registered bool
+	Applied    bool
 	UpFn       func(*sql.Tx) error // Up go migration function
 	DownFn     func(*sql.Tx) error // Down go migration function
 }

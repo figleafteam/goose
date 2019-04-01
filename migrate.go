@@ -54,6 +54,9 @@ func (ms Migrations) Next(current int64) (*Migration, error) {
 	}
 	cur, err := ms.Current(current)
 	if err != nil {
+		if err == ErrNoCurrentVersion {
+			return ms.firstUnapplied()
+		}
 		return nil, err
 	}
 	if cur.Next == -1 {
@@ -65,6 +68,17 @@ func (ms Migrations) Next(current int64) (*Migration, error) {
 	}
 
 	return next, nil
+}
+
+func (ms Migrations) firstUnapplied() (*Migration, error) {
+	for _, migration := range ms {
+		if migration.Applied {
+			continue
+		}
+		return migration, nil
+	}
+
+	return nil, ErrNoNextVersion
 }
 
 // Previous : Get the previous migration.
@@ -405,6 +419,7 @@ func sortAndConnectAllMigrations(migrations Migrations, applied map[int64]bool) 
 		a := applied[m.Version]
 		// append applied
 		if a {
+			m.Applied = true
 			am = append(am, m)
 			continue
 		}
