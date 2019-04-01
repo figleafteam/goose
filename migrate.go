@@ -513,7 +513,7 @@ func AppliedDBVersions(db *sql.DB) (map[int64]bool, error) {
 
 	rows, err := GetDialect().dbVersionQuery(db)
 	if err != nil {
-		return applied, createVersionTable(db)
+		return applied, initVersionTable(db)
 	}
 	defer rows.Close()
 
@@ -543,7 +543,7 @@ func AppliedDBVersions(db *sql.DB) (map[int64]bool, error) {
 func EnsureDBVersion(db *sql.DB) (int64, error) {
 	rows, err := GetDialect().dbVersionQuery(db)
 	if err != nil {
-		return 0, createVersionTable(db)
+		return 0, initVersionTable(db)
 	}
 	defer rows.Close()
 
@@ -583,33 +583,67 @@ func EnsureDBVersion(db *sql.DB) (int64, error) {
 	if err := rows.Err(); err != nil {
 		return 0, errors.Wrap(err, "failed to get next row")
 	}
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to begin transaction")
+	}
 
-	return 0, ErrNoNextVersion
+	if err := insertInitialMigration(tx); err != nil {
+		if err := tx.Rollback(); err != nil {
+			return 0, err
+		}
+		return 0, errors.Wrap(err, "failed to insert initial migration")
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return 0, nil
 }
 
 // Create the db version table
 // and insert the initial 0 value into it
-func createVersionTable(db *sql.DB) error {
+func initVersionTable(db *sql.DB) error {
 	txn, err := db.Begin()
 	if err != nil {
 		return err
 	}
 
-	d := GetDialect()
-
-	if _, err := txn.Exec(d.createVersionTableSQL()); err != nil {
-		txn.Rollback()
-		return err
+	if err := createVersionTable(txn); err != nil {
+		if err := txn.Rollback(); err != nil {
+			return err
+		}
 	}
 
-	version := 0
-	applied := true
-	if _, err := txn.Exec(d.insertVersionSQL(), version, applied); err != nil {
-		txn.Rollback()
-		return err
+	if err := insertInitialMigration(txn); err != nil {
+		if err := txn.Rollback(); err != nil {
+			return err
+		}
 	}
 
 	return txn.Commit()
+}
+
+func createVersionTable(tx *sql.Tx) error {
+	d := GetDialect()
+
+	if _, err := tx.Exec(d.createVersionTableSQL()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func insertInitialMigration(tx *sql.Tx) error {
+	d := GetDialect()
+
+	if _, err := tx.Exec(d.insertVersionSQL(), 0, true); err != nil {
+		if err := tx.Rollback(); err != nil {
+			return err
+		}
+		return err
+	}
+
+	return nil
 }
 
 // GetDBVersion is an alias for EnsureDBVersion, but returns -1 in error.
