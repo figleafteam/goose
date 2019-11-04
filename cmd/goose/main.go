@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/pressly/goose"
+	"github.com/lonja/goose"
 )
 
 var (
@@ -20,7 +20,11 @@ var (
 
 func main() {
 	flags.Usage = usage
-	flags.Parse(os.Args[1:])
+	if err := flags.Parse(os.Args[1:]); err != nil {
+		log.Fatalf("error parsing arguments: %v", err)
+
+		return
+	}
 
 	if *version {
 		fmt.Println(goose.VERSION)
