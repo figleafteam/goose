@@ -78,7 +78,12 @@ func fixUp(db *sql.DB) error {
 		return err
 	}
 	defer rows.Close()
+
 	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
 	var prevRow *MigrationRecord
 	for rows.Next() {
 		row := new(MigrationRecord)
@@ -91,13 +96,19 @@ func fixUp(db *sql.DB) error {
 		}
 		if prevRow.ID > row.ID && prevRow.VersionID < row.VersionID {
 			if err := swapRows(tx, prevRow, row); err != nil {
-				_ = tx.Rollback()
+				if err := tx.Rollback(); err != nil {
+					return err
+				}
+
 				return err
 			}
 			continue
 		} else if prevRow.ID < row.ID && prevRow.VersionID > row.VersionID {
 			if err := swapRows(tx, prevRow, row); err != nil {
-				_ = tx.Rollback()
+				if err := tx.Rollback(); err != nil {
+					return err
+				}
+
 				return err
 			}
 			prevRow = row
